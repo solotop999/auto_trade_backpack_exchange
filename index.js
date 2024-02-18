@@ -2,6 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const backpack_client_1 = require("./backpack_client");
 
+/// EDIT HERE ///
+const API_KEY = "VC2jGOXfxxxxxxxxxxxxxxxxxxxx=";
+const API_SECRET = "EaIvdhigkxxxxxxxxxxxxxxxx=";
+/////////////
+
 function delay(ms) {
     return new Promise(resolve => {
         setTimeout(resolve, ms);
@@ -139,9 +144,8 @@ const buyfun = async (client) => {
 }
 
 (async () => {
-    const apisecret = "EaIvdhigkxxxxxxxxxxxxxxxx=";
-    const apikey = "VC2jGOXfxxxxxxxxxxxxxxxxxxxx=";
+    const apisecret = API_SECRET;
+    const apikey = API_KEY;
     const client = new backpack_client_1.BackpackClient(apisecret, apikey);
     init(client);
 })()
-
