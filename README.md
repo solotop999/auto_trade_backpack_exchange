@@ -32,3 +32,6 @@ node ./index.js
 7. Results:
    
 ![image](https://github.com/solotop999/auto_trade_backpack_exchange/assets/24671262/f22c04ed-df0e-4a2a-9715-e18a08ca83a4)
+
+
+Source from: [catsats](https://github.com/catsats)
