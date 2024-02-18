@@ -1,7 +1,7 @@
 # auto_trade_backpack_exchange
 
 
-Auto trade on Backpack exchange with TypeScrip:
+Auto trade on Backpack exchange with Javascript:
 
 
 **Note:**
