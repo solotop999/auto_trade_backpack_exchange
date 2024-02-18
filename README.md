@@ -10,10 +10,11 @@ Auto trade on Backpack exchange with Javascript:
   
 ----------------------------
 1. Create account: [Backpack](https://backpack.exchange/refer/TOP)
-   
-2. Create backpack API: https://backpack.exchange/settings/api-keys
 
-3. Download code: [solotop999/auto_trade_backpack_exchange](https://github.com/solotop999/auto_trade_backpack_exchange/archive/refs/heads/main.zip)
+2. Download code: [solotop999/auto_trade_backpack_exchange](https://github.com/solotop999/auto_trade_backpack_exchange/archive/refs/heads/main.zip)
+
+3. Create backpack API: https://backpack.exchange/settings/api-keys
+
 
 4. Install NodeJS: [How to install Nodejs](https://www.geeksforgeeks.org/installation-of-node-js-on-windows) (Version >= v18.16.0) 
 
