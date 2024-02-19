@@ -117,7 +117,11 @@ const buyfun = async (client) => {
         console.log(getNowFormatDate(), "All pending orders canceled");
     }
     let userbalance = await client.Balance();
-    console.log(getNowFormatDate(), `My Account Infos: ${userbalance.SOL.available} $SOL | ${userbalance.USDC.available} $USDC`, );
+    let balanceSol = 0;
+    if (userbalance.SOL) {
+        balanceSol = userbalance.SOL.available
+    }
+    console.log(getNowFormatDate(), `My Account Infos: ${balanceSol} $SOL | ${userbalance.USDC.available} $USDC`, );
     let { lastPrice } = await client.Ticker({ symbol: "SOL_USDC" });
     console.log(getNowFormatDate(), "Price of sol_usdc:", lastPrice);
     let quantitys = ((userbalance.USDC.available - 2) / lastPrice).toFixed(2).toString();
