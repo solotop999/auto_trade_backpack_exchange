@@ -87,7 +87,7 @@ const sellfun = async (client) => {
     
     let { lastPrice: lastPriceask } = await client.Ticker({ symbol: "SOL_USDC" });
     console.log(getNowFormatDate(), "Price sol_usdc:", lastPriceask);
-    let quantitys = ((userbalance2.SOL.available / 2) - 0.02).toFixed(2).toString();
+    let quantitys = (userbalance2.SOL.available - 0.02).toFixed(2).toString();
     console.log(getNowFormatDate(), `Trade... ${quantitys} $SOL to ${(lastPriceask * quantitys).toFixed(2)} $USDC`);
     let orderResultAsk = await client.ExecuteOrder({
         orderType: "Limit",
