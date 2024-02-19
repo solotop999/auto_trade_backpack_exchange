@@ -7,7 +7,11 @@ Auto trade on Backpack exchange with Javascript:
 **Note:**
 - Make sure you have more than: 5 $USDC in exchange
 - This code will trade in pairs: $SOL/$USDC
-  
+
+----------------------------
+ 
+  Video Guide: https://x.com/solotop999/status/1759194264830198145?s=20
+
 ----------------------------
 1. Create account: [Backpack](https://backpack.exchange/refer/TOP)
 
