@@ -3,8 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const backpack_client_1 = require("./backpack_client");
 
 /// EDIT HERE ///
-const API_KEY = "VC2jGOXfxxxxxxxxxxxxxxxxxxxx=";
-const API_SECRET = "EaIvdhigkxxxxxxxxxxxxxxxx=";
+const API_KEY = "VC2jGOXfxxxxxxxxxxxxxxxxxxxx="
+const API_SECRET = "EaIvdhigkxxxxxxxxxxxxxxxx="
 /////////////
 
 function delay(ms) {
@@ -105,6 +105,7 @@ const sellfun = async (client) => {
         if (orderResultAsk?.status == 'Expired'){
             throw new Error("Sell Order Expired");
         } else{
+            
             throw new Error(orderResultAsk?.status);
         }
     }
@@ -139,10 +140,10 @@ const buyfun = async (client) => {
         console.log(getNowFormatDate(), "Bought successfully:", `Order number: ${orderResultBid.id}`);
         init(client);
     } else {
-        if (orderResultAsk?.status == 'Expired'){
+        if (orderResultBid?.status == 'Expired'){
             throw new Error("Buy Order Expired");
         } else{
-            throw new Error(orderResultAsk?.status);
+            throw new Error(orderResultBid?.status);
         }
     }
 }
