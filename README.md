@@ -6,8 +6,7 @@ Auto trade on Backpack exchange with Javascript:
 
 **Note:**
 - Make sure you have more than: 10 $USDC in exchange
-- This code will trade in pairs: $SOL/$USDC
-
+- Trading Pair: $WEN/$USDC
 ----------------------------
  
   Video Guide: https://x.com/solotop999/status/1759194264830198145?s=20
