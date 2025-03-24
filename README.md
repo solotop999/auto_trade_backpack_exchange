@@ -1,7 +1,7 @@
-# auto_trade_backpack_exchange
+# auto_trade_backpack_exchange_via_API
 
 
-Auto trade on Backpack exchange with Javascript:
+Auto trade on Backpack exchange with API & Javascript:
 
 
 **Note:**
