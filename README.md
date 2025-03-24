@@ -6,7 +6,8 @@ Auto trade on Backpack exchange with API & Javascript:
 
 **Note:**
 - Make sure you have more than: 10 $USDC in exchange
-- Trading Pair: $WEN/$USDC
+- Trading Pair: $SOL/$USDC
+- Create trade API: Portfolio > Settings > API Keys > New API Key
 ----------------------------
  
   Video Guide: https://x.com/solotop999/status/1759194264830198145?s=20
