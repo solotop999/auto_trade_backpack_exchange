@@ -1,0 +1,38 @@
+# Byte-compiled / cached
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+.env/
+.env
+
+# Logs
+*.log
+
+# IDE / Editor specific
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Python dependency files
+Pipfile
+Pipfile.lock
+requirements.txt
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Custom ignore files
+.envrc
+*.local
