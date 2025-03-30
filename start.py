@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from backpack_exchange import BackpackExchange
 from public_API import PublicClient
 from time import sleep
-import RequestEnums
+import types
 import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -93,12 +93,12 @@ def start_trading(
     quantity = format_decimal(trading_amount / limit_price, tick_size=step_size)
     logging.info(f"Calculated quantity: {quantity}")
 
-    order_side = RequestEnums.OrderSide.BID.value if trade_side == "LONG" else RequestEnums.OrderSide.ASK.value
+    order_side = types.OrderSide.BID.value if trade_side == "LONG" else types.OrderSide.ASK.value
     logging.info(f"Trade side: {trade_side}, Order side: {order_side}")
 
     try:
         order_status = client.execute_order(
-            RequestEnums.OrderType.LIMIT.value,
+            types.OrderType.LIMIT.value,
             order_side,
             symbol=trading_pair,
             price=str(limit_price),
