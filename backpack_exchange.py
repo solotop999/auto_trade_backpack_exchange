@@ -4,7 +4,7 @@ import requests
 import json
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from types import (
+from format_types import (
     CancelOrderType,
     FillType,
     MarketType,

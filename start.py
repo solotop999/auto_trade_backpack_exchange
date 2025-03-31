@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from backpack_exchange import BackpackExchange
 from public_API import PublicClient
 from time import sleep
-import types
+import format_types
 import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -62,7 +62,6 @@ def calculate_prices(trade_side: str, current_price: float, limit_price_percenta
         take_profit_price = format_decimal(limit_price * (1 + take_profit_percentage / 100), tick_size)
     else:  # SHORT
         limit_price = format_decimal(current_price * (1 + limit_price_percentage / 100), tick_size)
-        logging.info(f"zzzCurrent price: {current_price}, Limit price: {limit_price}m 'limit_price_percentage': {limit_price_percentage}")
         stop_loss_price = format_decimal(limit_price * (1 + stop_loss_percentage / 100), tick_size)
         take_profit_price = format_decimal(limit_price * (1 - take_profit_percentage / 100), tick_size)
     return limit_price, stop_loss_price, take_profit_price
@@ -93,12 +92,12 @@ def start_trading(
     quantity = format_decimal(trading_amount / limit_price, tick_size=step_size)
     logging.info(f"Calculated quantity: {quantity}")
 
-    order_side = types.OrderSide.BID.value if trade_side == "LONG" else types.OrderSide.ASK.value
+    order_side = format_types.OrderSide.BID.value if trade_side == "LONG" else format_types.OrderSide.ASK.value
     logging.info(f"Trade side: {trade_side}, Order side: {order_side}")
 
     try:
         order_status = client.execute_order(
-            types.OrderType.LIMIT.value,
+            format_types.OrderType.LIMIT.value,
             order_side,
             symbol=trading_pair,
             price=str(limit_price),
@@ -116,12 +115,12 @@ if __name__ == "__main__":
     ### setting ###
     leverageLimit = 25
     autoRepayBorrows = True
-    trading_amount = 25
-    limit_price_percentage = 0.1
+    trading_amount = 100 #usdc
+    limit_price_percentage = 0.001
     stop_loss_percentage = 2
     take_profit_percentage = 5
     trading_pair = "BTC_USDC_PERP"
-    trade_side = "LONG"
+    trade_side = "SHORT"  # "LONG" or "SHORT"
     #########################
 
     API_KEY = getenv("API_KEY")
