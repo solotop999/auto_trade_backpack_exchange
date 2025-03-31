@@ -83,8 +83,8 @@ class MarketType(Enum):
 
 
 class OrderSide(Enum):
-    BID = "Bid"
-    ASK = "Ask"
+    BUY = "Bid"
+    SELL = "Ask"
 
 
 class CancelOrderType(Enum):

@@ -24,7 +24,9 @@ def close_all_orders(client: BackpackExchange):
     """
     try:
         open_orders = client.get_open_orders()
-        if not open_orders: return
+        if not open_orders: 
+            logging.info("No open order to close.")
+            return
 
         for order in open_orders:
             client.cancel_open_order(symbol=order['symbol'], orderId=order["id"])
@@ -92,7 +94,7 @@ def start_trading(
     quantity = format_decimal(trading_amount / limit_price, tick_size=step_size)
     logging.info(f"Calculated quantity: {quantity}")
 
-    order_side = format_types.OrderSide.BID.value if trade_side == "LONG" else format_types.OrderSide.ASK.value
+    order_side = format_types.OrderSide.BUY.value if trade_side == "LONG" else format_types.OrderSide.SELL.value
     logging.info(f"Trade side: {trade_side}, Order side: {order_side}")
 
     try:
@@ -111,16 +113,46 @@ def start_trading(
         logging.error(f"Error in start_trading: {e}")
         return False
 
+def close_all_positions(client: BackpackExchange):
+    """
+    Close all open positions for the account.
+    """
+    try:
+        positions_status = client.get_open_positions()
+        if not positions_status:
+            logging.info("No open positions to close.")
+            return
+
+        for position in positions_status:
+            side = (
+                format_types.OrderSide.SELL.value
+                if float(position['netQuantity']) > 0  # Long position
+                else format_types.OrderSide.BUY.value  # Short position
+            )
+            logging.info(f"Closing position: {position['symbol']}, netQuantity: {position['netQuantity']}, side: {side}")
+
+            order_status = client.execute_order(
+                orderType=format_types.OrderType.MARKET.value,
+                side=side,
+                symbol=position['symbol'],
+                quantity=abs(float(position['netQuantity'])),
+                reduceOnly=True,
+            )
+            logging.info(f"Closed position status: {order_status['status']}")
+
+    except Exception as e:
+        logging.error(f"Error in close_all_positions: {e}")
+
 if __name__ == "__main__":
     ### setting ###
     leverageLimit = 25
     autoRepayBorrows = True
     trading_amount = 100 #usdc
-    limit_price_percentage = 0.001
+    limit_price_percentage = 0.0001
     stop_loss_percentage = 2
     take_profit_percentage = 5
     trading_pair = "BTC_USDC_PERP"
-    trade_side = "SHORT"  # "LONG" or "SHORT"
+    trade_side = "LONG"  # "LONG" or "SHORT"
     #########################
 
     API_KEY = getenv("API_KEY")
@@ -133,9 +165,11 @@ if __name__ == "__main__":
     public_client = PublicClient()
     client = BackpackExchange(API_KEY, API_SECRET)
 
-    # client.update_account(leverageLimit=leverageLimit, autoRepayBorrows=autoRepayBorrows)
+    client.update_account(leverageLimit=leverageLimit, autoRepayBorrows=autoRepayBorrows)
 
     close_all_orders(client)
+    sleep(2)
+    close_all_positions(client)
 
     order_status = start_trading(
         client=client,
@@ -148,4 +182,9 @@ if __name__ == "__main__":
         trade_side=trade_side,
     )
 
-    print(order_status)
+    logging.info(f"Ordered: {trade_side} - Amount: {trading_amount}USDC, price: {order_status['price']}, takeProfitTriggerPrice: {order_status['takeProfitTriggerPrice']}, stopLossTriggerPrice: {order_status['stopLossTriggerPrice']}")
+
+    sleep(30)
+
+    close_all_positions(client)
+    
