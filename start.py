@@ -1,3 +1,4 @@
+import json
 from os import getenv
 from dotenv import load_dotenv
 from time import sleep
@@ -8,15 +9,26 @@ from helpers.backpack_exchange import BackpackExchange
 from helpers.public_API import PublicClient
 from helpers.orders import close_all_orders, close_all_positions
 from helpers.format_types import OrderSide, OrderType
-from settings import (
-    TOTAL_TRADES, MIN_SLEEP, MAX_SLEEP, TRADING_PAIR, TRADE_SIDE,
-    LEVERAGE_LIMIT, TRADING_AMOUNT, LIMIT_PRICE_PERCENTAGE,
-    STOP_LOSS_USDC, TAKE_PROFIT_USDC, AUTO_REPAY_BORROWS
-)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 load_dotenv()
+
+# Load settings from settings.json
+with open("settings.json", "r") as f:
+    settings = json.load(f)
+
+TOTAL_TRADES = settings["TOTAL_TRADES"]
+MIN_SLEEP = settings["MIN_SLEEP"]
+MAX_SLEEP = settings["MAX_SLEEP"]
+TRADING_PAIR = settings["TRADING_PAIR"]
+TRADE_SIDE = settings["TRADE_SIDE"]
+LEVERAGE_LIMIT = settings["LEVERAGE_LIMIT"]
+TRADING_AMOUNT = settings["TRADING_AMOUNT"]
+LIMIT_PRICE_PERCENTAGE = settings["LIMIT_PRICE_PERCENTAGE"]
+STOP_LOSS_USDC = settings["STOP_LOSS_USDC"]
+TAKE_PROFIT_USDC = settings["TAKE_PROFIT_USDC"]
+AUTO_REPAY_BORROWS = settings["AUTO_REPAY_BORROWS"]
 
 def format_decimal(value: any, tick_size: any) -> float:
     tick_size = str(tick_size)
@@ -149,27 +161,31 @@ if __name__ == "__main__":
         logging.error("API_KEY or API_SECRET is not set.")
         exit(1)
 
-    public_client = PublicClient()
-    client = BackpackExchange(API_KEY, API_SECRET)
+    try:
+        public_client = PublicClient()
+        client = BackpackExchange(API_KEY, API_SECRET)
 
-    client.update_account(leverageLimit=LEVERAGE_LIMIT, autoRepayBorrows=AUTO_REPAY_BORROWS)
+        client.update_account(leverageLimit=LEVERAGE_LIMIT, autoRepayBorrows=AUTO_REPAY_BORROWS)
 
-    for i in range(TOTAL_TRADES):
-        logging.info(f"Trading {i+1}/{TOTAL_TRADES}")
-        close_all_orders(client)
-        sleep(1)
-        close_all_positions(client)
-        sleep(1)
+        for i in range(TOTAL_TRADES):
+            logging.info(f"Trading {i+1}/{TOTAL_TRADES}")
+            close_all_orders(client)
+            sleep(1)
+            close_all_positions(client)
+            sleep(1)
 
-        order_status = start_trading(
-            client=client,
-            public_client=public_client,
-            trading_pair=TRADING_PAIR,
-            trading_amount=TRADING_AMOUNT,
-            limit_price_percentage=LIMIT_PRICE_PERCENTAGE,
-            stop_loss_usdc=STOP_LOSS_USDC,
-            take_profit_usdc=TAKE_PROFIT_USDC,
-            trade_side=TRADE_SIDE,
-        )
+            order_status = start_trading(
+                client=client,
+                public_client=public_client,
+                trading_pair=TRADING_PAIR,
+                trading_amount=TRADING_AMOUNT,
+                limit_price_percentage=LIMIT_PRICE_PERCENTAGE,
+                stop_loss_usdc=STOP_LOSS_USDC,
+                take_profit_usdc=TAKE_PROFIT_USDC,
+                trade_side=TRADE_SIDE,
+            )
 
-        countdown_sleep(MIN_SLEEP, MAX_SLEEP)
+            countdown_sleep(MIN_SLEEP, MAX_SLEEP)
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        input("Press Enter to exit...")
