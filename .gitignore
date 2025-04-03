@@ -23,7 +23,6 @@ Thumbs.db
 # Python dependency files
 Pipfile
 Pipfile.lock
-requirements.txt
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
