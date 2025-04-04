@@ -17,7 +17,7 @@
 
 - Tải và cài đặt python: https://www.python.org/downloads/
 
-- Cài phần mềm phụ thuộc để chạy code:
+- Cài thư viện phụ thuộc để chạy code:
 
  ```
  pip install -r requirements.txt
