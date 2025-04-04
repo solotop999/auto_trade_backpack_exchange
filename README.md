@@ -35,8 +35,22 @@ _(**không để lộ thông tin 2 key này, không sử dụng nữa có thể 
    
 3. Đổi tên file: `env_example` thành `.env`
    
-4. Mở file `settings.json` và điền các chiến lược trade vào. Có ghi chú chức năng trong file nha
-
+4. Mở file `settings.json` và điền các chiến lược trade vào:
+```
+{
+    "TOTAL_TRADES": 20, => tổng trade 20 lần xong nghỉ
+    "MIN_SLEEP": 300, => random, sau mỗi lần trade tạm dừng tối thiểu 300s
+    "MAX_SLEEP": 600, => random, sau mỗi lần trade tạm dừng tối đa 600s
+    "TRADING_PAIR": "BTC_USDC_PERP", => có thể trade các cặp khác: ví dụ: ETH_USDC_PERP , SOL_USDC_PERP , BNB_USDC_PERP
+    "TRADE_SIDE": "LONG", => "LONG" OR "SHORT"
+    "LEVERAGE_LIMIT": 5, => Đòn bẩy
+    "TRADING_AMOUNT": 500, => Volume trade, tính cả đòn bẩy
+    "LIMIT_PRICE_PERCENTAGE": 0.05, => đặt lệnh limit cao hơn giá hiện tại 1 chút để tiết kiệm fee
+    "STOP_LOSS_USDC": 25, => Stop loss
+    "TAKE_PROFIT_USDC": 50, => take profit
+    "AUTO_REPAY_BORROWS": true
+}
+```
 ----------------------------
 
  <h3>Chạy code:</h3>
