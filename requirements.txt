@@ -1,3 +1,4 @@
 requests==2.31.0
 cryptography==41.0.3
 python-dotenv==1.0.0
+Telethon==1.40.0

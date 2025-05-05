@@ -5,14 +5,37 @@ from time import sleep
 import logging
 import random
 import requests
+from telethon.sync import TelegramClient
+from telethon.tl.functions.messages import SendMessageRequest
 from helpers.backpack_exchange import BackpackExchange
 from helpers.public_API import PublicClient
 from helpers.orders import close_all_orders, close_all_positions
 from helpers.format_types import OrderSide, OrderType
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    filename="trade.log",
+    filemode="a"
+)
 
 load_dotenv()
+
+TELEGRAM_INFO = {
+    "MSG_TO": getenv("TELEGRAM_MSG_TO"),
+    "API_ID": int(getenv("TELEGRAM_API_ID")),
+    "API_HASH": getenv("TELEGRAM_API_HASH"),
+    "BOT_TOKEN": getenv("TELEGRAM_BOT_TOKEN")
+}
+
+def send_bot_message(message: str):
+    with TelegramClient('telegram_bp_bot', TELEGRAM_INFO["API_ID"], TELEGRAM_INFO["API_HASH"]).start(bot_token=TELEGRAM_INFO["BOT_TOKEN"]) as client:
+        try:
+            client(SendMessageRequest(peer=TELEGRAM_INFO["MSG_TO"], message=message, no_webpage=True))
+            print(message)
+        except Exception as e:
+            print(f"❌ Failed to send message: {e}")
+
 
 # Load settings from settings.json
 with open("settings.json", "r") as f:
@@ -29,6 +52,7 @@ LIMIT_PRICE_PERCENTAGE = settings["LIMIT_PRICE_PERCENTAGE"]
 STOP_LOSS_USDC = settings["STOP_LOSS_USDC"]
 TAKE_PROFIT_USDC = settings["TAKE_PROFIT_USDC"]
 AUTO_REPAY_BORROWS = settings["AUTO_REPAY_BORROWS"]
+TELEGRAM_ALERT = settings["TELEGRAM_ALERT"]
 
 def format_decimal(value: any, tick_size: any) -> float:
     tick_size = str(tick_size)
@@ -116,13 +140,15 @@ def start_trading(
                 symbol=trading_pair,
                 takeProfitTriggerPrice=str(take_profit_price),
             )
-            logging.info(
-                f"Ordered: {trade_side} \n"
+            msg = (
+                f"✅ Ordered: {trade_side} \n"
                 f"- Amount: {trading_amount}USDC\n"
                 f"- Price: {order_status['price']}\n"
                 f"- takeProfitTriggerPrice: {order_status['takeProfitTriggerPrice']} (+{take_profit_percentage:.0f}%) (+{take_profit_usdc:.0f} USDC)\n"
-                f"- stopLossTriggerPrice: {order_status['stopLossTriggerPrice']} (-{stop_loss_percentage:.0f}%) (-{stop_loss_usdc:.0f} USDC)")
-            return order_status
+                f"- stopLossTriggerPrice: {order_status['stopLossTriggerPrice']} (-{stop_loss_percentage:.0f}%) (-{stop_loss_usdc:.0f} USDC)"
+            )
+            logging.info(msg)
+            return msg
         except Exception as e:
             error_message = str(e)
             if "INVALID_ORDER - Order would immediately match" in error_message:
@@ -184,6 +210,8 @@ if __name__ == "__main__":
                 take_profit_usdc=TAKE_PROFIT_USDC,
                 trade_side=TRADE_SIDE,
             )
+
+            if TELEGRAM_ALERT: send_bot_message(f"Trading {i+1}/{TOTAL_TRADES}:\n\n{order_status}")
 
             countdown_sleep(MIN_SLEEP, MAX_SLEEP)
     except Exception as e:

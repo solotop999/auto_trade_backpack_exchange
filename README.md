@@ -36,7 +36,7 @@ _(**không để lộ thông tin 2 key này, không sử dụng nữa có thể 
 3. Đổi tên file: `env_example` thành `.env`
    
 4. Mở file `settings.json` và điền các chiến lược trade vào. Có ghi chú chức năng trong file nha
-
+(nếu bật tính năng thông báo qua telegram (TELEGRAM_ALERT=true), thì cài đặt thông tin telegram bot tại file .env, nếu không thì bỏ qua)
 ----------------------------
 
  <h3>Chạy code:</h3>

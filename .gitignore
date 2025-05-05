@@ -35,3 +35,7 @@ build/
 # Custom ignore files
 .envrc
 *.local
+
+test.py
+*.session
+
