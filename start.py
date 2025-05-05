@@ -31,7 +31,8 @@ TELEGRAM_INFO = {
 def send_bot_message(message: str):
     with TelegramClient('telegram_bp_bot', TELEGRAM_INFO["API_ID"], TELEGRAM_INFO["API_HASH"]).start(bot_token=TELEGRAM_INFO["BOT_TOKEN"]) as client:
         try:
-            client(SendMessageRequest(peer=TELEGRAM_INFO["MSG_TO"], message=message, no_webpage=True))
+            entity = client.get_input_entity(TELEGRAM_INFO["MSG_TO"])
+            client(SendMessageRequest(peer=entity, message=message, no_webpage=True))
             print(message)
         except Exception as e:
             print(f"❌ Failed to send message: {e}")

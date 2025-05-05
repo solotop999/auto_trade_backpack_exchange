@@ -2,7 +2,7 @@ API_KEY=''
 API_SECRET=''
 
 # Telegram config (options)
-TELEGRAM_MSG_TO=telegram_recieve_username
-TELEGRAM_API_ID=telegram_bot_api_id
+TELEGRAM_MSG_TO=@telegram_recieve_username
+TELEGRAM_API_ID=000000
 TELEGRAM_API_HASH=telegram_bot_api_hash
 TELEGRAM_BOT_TOKEN=telegram_bot_api_bot_token

@@ -10,5 +10,5 @@
     "STOP_LOSS_USDC": 10,
     "TAKE_PROFIT_USDC": 10,
     "AUTO_REPAY_BORROWS": true,
-    "TELEGRAM_ALERT": false
+    "TELEGRAM_ALERT": true
 }
