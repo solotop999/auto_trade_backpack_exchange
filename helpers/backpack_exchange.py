@@ -1,7 +1,8 @@
 import time
 import base64
 import requests
-import json
+from enum import Enum
+from decimal import Decimal
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from helpers.format_types import (
@@ -35,21 +36,28 @@ class BackpackExchange:
         """
         Send authenticated request to API endpoint.
         """
-        url = f"{self.BASE_URL}{endpoint}"
+        method = method.upper()
+        if method not in {"GET", "DELETE", "PATCH", "PUT", "POST"}:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+        url = f"{self.BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}"
+        params = {k: v for k, v in (params or {}).items() if v is not None}
+        params = {k: (v.value if isinstance(v, Enum) else v) for k, v in params.items()}
         ts = int(time.time() * 1e3)
-        headers = self._generate_signature(action, ts, params)
+        headers = self._generate_signature(action, ts, params) if action else {}
+        if method == "GET":
+            params = {k: str(v).lower() if isinstance(v, bool) else v for k, v in params.items()}
 
         try:
             if method == "GET":
-                response = self.session.get(url, headers=headers, params=params)
+                response = self.session.get(url, headers=headers, params=params, timeout=30)
             elif method == "DELETE":
-                response = self.session.delete(url, headers=headers, data=json.dumps(params))
+                response = self.session.delete(url, headers=headers, json=params, timeout=30)
             elif method == "PATCH":
-                response = self.session.patch(url, headers=headers, data=json.dumps(params))
+                response = self.session.patch(url, headers=headers, json=params, timeout=30)
             elif method == "PUT":
-                response = self.session.put(url, headers=headers, data=json.dumps(params))
+                response = self.session.put(url, headers=headers, json=params, timeout=30)
             else:
-                response = self.session.post(url, headers=headers, data=json.dumps(params))
+                response = self.session.post(url, headers=headers, json=params, timeout=30)
 
             if 200 <= response.status_code < 300:
                 if response.status_code == 204:
@@ -61,7 +69,7 @@ class BackpackExchange:
             else:
                 try:
                     error = response.json()
-                    raise Exception(f"API Error: {error.get('code')} - {error.get('message')}")
+                    raise Exception(f"API Error: {error.get('code') if isinstance(error, dict) else response.status_code} - {error.get('message') if isinstance(error, dict) else error}")
                 except ValueError:
                     raise Exception(f"HTTP Error {response.status_code}: {response.text}")
 
@@ -113,11 +121,11 @@ class BackpackExchange:
         if autoLend is not None:
             data["autoLend"] = autoLend
         if autoRealizePnl is not None:
-            data["autoRealizePnl"] = autoRealizePnl
+            raise ValueError("autoRealizePnl is no longer writable; Backpack realizes PnL continuously")
         if autoRepayBorrows is not None:
             data["autoRepayBorrows"] = autoRepayBorrows
         if leverageLimit is not None:
-            data["leverageLimit"] = leverageLimit
+            data["leverageLimit"] = str(leverageLimit)
 
         self._send_request("PATCH", "api/v1/account", "accountUpdate", data)
 
@@ -142,10 +150,12 @@ class BackpackExchange:
 
         One of orderId or clientId must be specified. If both are specified then the request will be rejected.
         """
+        if (clientId is None) == (orderId is None):
+            raise ValueError("Specify exactly one of clientId or orderId")
         data = {"symbol": symbol}
-        if clientId:
+        if clientId is not None:
             data["clientId"] = clientId
-        if orderId:
+        if orderId is not None:
             data["orderId"] = orderId
         return self._send_request("DELETE", "api/v1/order", "orderCancel", data)
     
@@ -166,12 +176,17 @@ class BackpackExchange:
         """
         History of profit and loss realization for an account.
         """
-        params = {"limit": limit, "offset": offset}
-        if subaccountId:
-            params["subaccountId"] = subaccountId
-        if symbol:
-            params["symbol"] = symbol
-        return self._send_request("GET", "/wapi/v1/history/pnl", "pnlHistoryQueryAll", params)
+        raise NotImplementedError(
+            "Backpack removed /history/pnl on 2025-08-07. "
+            "Use get_settlement_history() for settlements; its response is not the old PnL schema."
+        )
+
+    def get_settlement_history(self, limit: int = 100, offset: int = 0):
+        """Retrieve settlement events using the current history endpoint."""
+        return self._send_request(
+            "GET", "wapi/v1/history/settlement", "settlementHistoryQueryAll",
+            {"limit": limit, "offset": offset},
+        )
 
     def get_max_order_quantity(
         self,
@@ -224,6 +239,11 @@ class BackpackExchange:
         takeProfitTriggerPrice: str = None,
         takeProfitLimitPrice: str = None,
         triggerQuantity: str = None,
+        triggerBy: str = None,
+        stopLossTriggerBy: str = None,
+        takeProfitTriggerBy: str = None,
+        slippageTolerance: str = None,
+        slippageToleranceType: str = None,
     ):
         """
         Executes an order on the order book. If the order is not immediately filled,
@@ -264,18 +284,21 @@ class BackpackExchange:
         if orderType == OrderType.LIMIT or orderType == "Limit":
             data["price"] = price
             data["quantity"] = quantity
+            if price is None or quantity is None:
+                raise ValueError("Limit orders require price and quantity")
+            data["postOnly"] = postOnly
             if timeInForce:
                 data["timeInForce"] = timeInForce.value if isinstance(timeInForce, TimeInForce) else timeInForce
-            else:
-                data["postOnly"] = postOnly
 
         if orderType == OrderType.MARKET or orderType == "Market":
-            if quantity:
+            if (quantity is None) == (quoteQuantity is None):
+                raise ValueError("Market orders require exactly one of quantity or quoteQuantity")
+            if quantity is not None:
                 data["quantity"] = quantity
-            elif quoteQuantity:
+            else:
                 data["quoteQuantity"] = quoteQuantity
 
-        if clientId:
+        if clientId is not None:
             data["clientId"] = clientId
 
         if selfTradePrevention:
@@ -317,6 +340,40 @@ class BackpackExchange:
 
         if triggerQuantity:
             data["triggerQuantity"] = triggerQuantity
+
+        if data["orderType"] not in {"Limit", "Market"}:
+            raise ValueError("orderType must be Limit or Market")
+        if data["side"] not in {"Bid", "Ask"}:
+            raise ValueError("side must be Bid or Ask")
+        if selfTradePrevention is not None and data["selfTradePrevention"] not in {
+            "RejectTaker", "RejectMaker", "RejectBoth"
+        }:
+            raise ValueError("Unsupported selfTradePrevention")
+        for field, value in {
+            "triggerBy": triggerBy, "stopLossTriggerBy": stopLossTriggerBy,
+            "takeProfitTriggerBy": takeProfitTriggerBy,
+        }.items():
+            if value is not None:
+                if value not in {"MarkPrice", "LastPrice", "IndexPrice"}:
+                    raise ValueError(f"Unsupported {field}")
+                data[field] = value
+        if (slippageTolerance is None) != (slippageToleranceType is None):
+            raise ValueError("Provide both slippageTolerance and slippageToleranceType")
+        if slippageToleranceType is not None:
+            if slippageToleranceType not in {"TickSize", "Percent"}:
+                raise ValueError("Unsupported slippageToleranceType")
+            data["slippageToleranceType"] = slippageToleranceType
+            data["slippageTolerance"] = slippageTolerance
+        for field in (
+            "price", "quantity", "quoteQuantity", "triggerPrice", "triggerQuantity",
+            "stopLossTriggerPrice", "stopLossLimitPrice", "takeProfitTriggerPrice",
+            "takeProfitLimitPrice", "slippageTolerance",
+        ):
+            if field in data:
+                value = Decimal(str(data[field]))
+                if not value.is_finite() or value <= 0:
+                    raise ValueError(f"{field} must be a finite positive decimal")
+                data[field] = format(value, "f")
 
         return self._send_request("POST", "api/v1/order", "orderExecute", data)
 

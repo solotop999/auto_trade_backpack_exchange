@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 from helpers.format_types import OrderSide, OrderType
 from helpers.backpack_exchange import BackpackExchange
 
@@ -30,9 +31,12 @@ def close_all_positions(client: BackpackExchange):
             return
 
         for position in positions_status:
+            net_quantity = Decimal(position['netQuantity'])
+            if not net_quantity:
+                continue
             side = (
                 OrderSide.SELL.value
-                if float(position['netQuantity']) > 0  # Long position
+                if net_quantity > 0  # Long position
                 else OrderSide.BUY.value  # Short position
             )
             logging.info(f"Closing position: {position['symbol']}, netQuantity: {position['netQuantity']}, side: {side}")
@@ -41,7 +45,7 @@ def close_all_positions(client: BackpackExchange):
                 orderType=OrderType.MARKET.value,
                 side=side,
                 symbol=position['symbol'],
-                quantity=abs(float(position['netQuantity'])),
+                quantity=format(abs(net_quantity), "f"),
                 reduceOnly=True,
             )
             logging.info(f"Closed position status: {order_status['status']}")
