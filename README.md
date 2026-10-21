@@ -1,71 +1,191 @@
-# Python code auto_trade_backpack_exchange_via_API
+# Backpack Exchange Python Trading Tools
 
+[![Offline tests](https://github.com/solotop999/auto_trade_backpack_exchange/actions/workflows/tests.yml/badge.svg)](https://github.com/solotop999/auto_trade_backpack_exchange/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-- Code python trade trên Backpack Exchange thông qua Backpack API
+Python API clients and a configurable trading script for Backpack Exchange. The request-signing, order-building, and market-data code is available for inspection, reuse, and community improvement.
 
-![zz](https://github.com/user-attachments/assets/f56819a3-700e-46da-9ef2-952bbafdbb19)
+Maintained by [@solotop999](https://github.com/solotop999). This is an independent community project, not affiliated with or endorsed by Backpack Exchange.
 
-- Cài đặt các chiến lược trading:
-  + Số lần muốn trade
-  + thời gian chờ giữa các lần trade
-  + Đặt TP và SL sau khi mở lệnh
-  + Đặt các giá trị: Đòn bẩy, Số tiền muốn trade..
-  + sử dụng lệnh Maker giúp tối ưu fee hơn
+## Features
 
- 
-<h3>Cài đặt:</h3>
+- Public client for market information, order books, mark prices, funding rates, and trades.
+- Authenticated client for account settings, balances, positions, order execution, cancellation, and settlement history.
+- ED25519 request signing with canonical parameter ordering.
+- Decimal-string order payloads and tick/step rounding helpers.
+- Configurable perpetual-futures trading loop with post-only entries and attached TP/SL trigger prices.
+- Optional Telegram notifications.
+- Offline regression tests and a GitHub Actions workflow.
 
-- Tải và cài đặt python: https://www.python.org/downloads/
+The client implements a subset of the exchange API; it is not a complete SDK.
 
-- Cài phần mềm phụ thuộc để chạy code:
+## Before running live trading
 
- ```
- pip install -r requirements.txt
- ```
+**`python start.py` uses the live exchange API and can place real orders. There is no dry-run mode.**
 
-Nên chạy từ mã nguồn theo hướng dẫn dưới đây. Nếu dùng bản executable, hãy xác minh nguồn phát hành và đối chiếu với mã nguồn; repo không bảo đảm an toàn tuyệt đối cho file thực thi.
+Before every new entry, the loop attempts to cancel **all open orders** and close **all open positions** accessible to the configured account, including positions outside `TRADING_PAIR`. Use a dedicated account or subaccount. Cleanup errors are logged; successful cleanup is not guaranteed before the loop continues.
 
-1. Tạo API  từ sàn Backpack: https://backpack.exchange/refer/TOP > Portfolio > Settings > API Key > New API Key
-   
-2. Copy `API KEY` và `API_SECRET` vào file `env_example`
+Trading can lose money. Post-only orders can remain unfilled or be rejected. TP/SL settings do not guarantee realized PnL: fees, funding, slippage, partial fills, and trigger execution affect results. The next iteration may close a position before either trigger executes.
 
-_(**không để lộ thông tin 2 key này, không sử dụng nữa có thể xóa đi)_
+## Getting started
 
-   ![image](https://github.com/user-attachments/assets/96b6248d-e66e-4c2a-91bc-c09b3fc9d74c)
-   
-3. Đổi tên file: `env_example` thành `.env`
-   
-4. Mở file `settings.json` và điền các chiến lược trade vào. Có ghi chú chức năng trong file nha
-(nếu bật tính năng thông báo qua telegram (TELEGRAM_ALERT=true), thì cài đặt thông tin telegram bot tại file .env, nếu không thi)
-----------------------------
+Python 3.11 is configured in CI. Offline development tests have also passed on Python 3.13; installation of the pinned dependencies on other Python versions has not been verified.
 
- <h3>Chạy code:</h3>
- 
-```
-python start.py
+```bash
+git clone https://github.com/solotop999/auto_trade_backpack_exchange.git
+cd auto_trade_backpack_exchange
+python -m venv venv
 ```
 
-### Kiểm thử và tương thích API
-
-Đối chiếu với [tài liệu Backpack chính thức](https://docs.backpack.exchange/) ngày 21/10/2026.
-
-- Request dùng ED25519, sắp xếp tham số theo tên và ký boolean dạng `true`/`false`.
-- Các giá trị decimal (giá, số lượng, leverage) được gửi dạng chuỗi. Giá/số lượng được làm tròn xuống theo bội số tick/step thực tế.
-- `clientId=0` được hỗ trợ; hủy lệnh phải truyền đúng một trong `clientId` hoặc `orderId`.
-- `execute_order()` hỗ trợ `triggerBy`, `stopLossTriggerBy`, `takeProfitTriggerBy`, `slippageTolerance` và `slippageToleranceType`. Truyền cả giá trị và loại slippage nếu sử dụng.
-- `autoRealizePnl` không còn được ghi vào account. Truyền tham số này sẽ báo lỗi cục bộ thay vì gửi request không hợp lệ.
-- `/history/pnl` đã bị Backpack loại bỏ ngày 07/08/2025. `get_pnl_history()` báo lỗi rõ ràng; dùng `get_settlement_history()` để lấy các sự kiện settlement với schema riêng, không phải bản thay thế tương đương cho lịch sử PnL.
-- Request HTTP có timeout 30 giây. Không tự động gửi lại lệnh khi lỗi mạng vì trạng thái thực thi có thể chưa xác định.
-- Telegram chỉ cần cấu hình khi bật thông báo. Không tải và thực thi banner Python từ Internet khi khởi động.
-
-Chạy kiểm thử offline (không cần API key và không đặt lệnh):
+Activate the environment on Windows PowerShell:
 
 ```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+Or on macOS/Linux:
+
+```bash
+source venv/bin/activate
+```
+
+Install dependencies and run the offline tests:
+
+```bash
+python -m pip install -r requirements.txt
 python -m unittest discover -s tests -v
 ```
 
-Kiểm thử dùng request giả lập, bao gồm xác minh chữ ký ED25519, payload API, precision và cấu hình Telegram tắt. Chưa xác nhận khớp lệnh thật bằng tài khoản giao dịch.
+Tests use mocked requests and a synthetic signing key. They do not require exchange credentials or place orders.
 
-Lưu ý vận hành: vòng lặp hiện hủy tất cả lệnh và gửi lệnh đóng tất cả vị thế trong tài khoản trước mỗi lần đặt lệnh mới. Chỉ dùng tài khoản/subaccount dành riêng cho tool. Post-only không bảo đảm được khớp; TP/SL không bảo đảm mức lỗ/lãi thực tế do phí, funding, trượt giá và việc khớp lệnh. Không commit `.env` hoặc API secret.
+### Read-only example
 
-_**Nếu hữu ích hãy Follow và thả Star cho mình nhé ❤️_
+This example fetches public market data without an API key:
+
+```python
+from helpers.public_API import PublicClient
+
+client = PublicClient()
+market = client.get_market("BTC_USDC_PERP")
+print(market["symbol"], market["filters"])
+```
+
+### Credentials
+
+Create an API key in the API Keys settings on [Backpack Exchange](https://backpack.exchange/). Refer to the [official API documentation](https://docs.backpack.exchange/) for authentication and permissions.
+
+Copy `env_example` to `.env` in the repository root:
+
+```powershell
+# Windows PowerShell
+Copy-Item env_example .env
+```
+
+```bash
+# macOS/Linux
+cp env_example .env
+```
+
+Set these values locally:
+
+```dotenv
+API_KEY=your_base64_api_public_key
+API_SECRET=your_base64_ed25519_private_key
+```
+
+`API_SECRET` is the exchange API signing key, not your wallet recovery phrase. Never include credentials in commits, issues, screenshots, or shared logs. The trading script does not need withdrawal permissions.
+
+Telegram variables are unused when `TELEGRAM_ALERT` is `false`. To enable alerts, set `TELEGRAM_MSG_TO`, `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, and `TELEGRAM_BOT_TOKEN` as shown in `env_example`.
+
+### Configuration
+
+Review `settings.json` before running. The checked-in values below are examples, not trading recommendations.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `TOTAL_TRADES` | `20` | Number of loop iterations, not confirmed fills. |
+| `MIN_SLEEP` | `600` | Minimum interval delay in seconds. |
+| `MAX_SLEEP` | `1200` | Maximum interval delay in seconds. |
+| `TRADING_PAIR` | `BTC_USDC_PERP` | Perpetual market for new entries. |
+| `TRADE_SIDE` | `SHORT` | Entry direction: `LONG` or `SHORT`. |
+| `LEVERAGE_LIMIT` | `3` | Account leverage limit requested at startup. |
+| `TRADING_AMOUNT` | `150` | Target entry notional in USDC before quantity rounding, not a margin budget. |
+| `LIMIT_PRICE_PERCENTAGE` | `0.05` | Entry offset from the index price, in percent. |
+| `STOP_LOSS_USDC` | `10` | Input for calculating the stop-loss percentage. |
+| `TAKE_PROFIT_USDC` | `10` | Input for calculating the take-profit percentage. |
+| `AUTO_REPAY_BORROWS` | `true` | Account auto-repayment setting requested at startup. |
+| `TELEGRAM_ALERT` | `false` | Enable Telegram notifications. |
+
+TP/SL percentages are calculated as `configured USDC amount / TRADING_AMOUNT * 100`, then applied to the rounded entry price. They are not guaranteed net PnL targets.
+
+After reviewing the account-wide cleanup behavior and configuration, start the live loop:
+
+```bash
+python start.py
+```
+
+Logs are written to `trade.log` in the current working directory. Also check order and position status in the exchange interface.
+
+## API compatibility
+
+Compared with the [official Backpack documentation](https://docs.backpack.exchange/) on **October 21, 2026**:
+
+- Signed parameters are sorted alphabetically. Boolean values use lowercase `true`/`false` in signatures and GET queries.
+- Order decimal fields and account leverage are sent as strings. Trading helpers round down to actual tick/step multiples.
+- `clientId=0` is preserved; single-order cancellation requires exactly one of `clientId` or `orderId`.
+- `postOnly` is preserved when `timeInForce` is supplied.
+- `execute_order()` supports `triggerBy`, `stopLossTriggerBy`, `takeProfitTriggerBy`, and the paired `slippageTolerance` / `slippageToleranceType` fields.
+- `autoRealizePnl` is no longer writable. Passing it to `update_account()` raises a local error.
+- `/history/pnl` was removed on August 7, 2025. `get_pnl_history()` raises `NotImplementedError`. `get_settlement_history()` returns settlement events with a different schema, not an equivalent PnL history response.
+- HTTP requests have a 30-second timeout. Orders are not automatically resubmitted after network failures, when execution status may be uncertain.
+
+## Validation and limitations
+
+The 19 offline tests cover signing, API payloads, decimal handling, identifier validation, removed API behavior, and trading helpers. GitHub Actions runs the tests on pushes and pull requests.
+
+A live read-only check confirmed the `BTC_USDC_PERP` market filters and mark-price response shape. Authenticated order execution, cancellation, TP/SL execution, and Telegram delivery have not been validated end to end in this update. CI does not perform live trading.
+
+Current limitations include:
+
+- No dry-run mode or fill-confirmation state machine.
+- Account-wide, best-effort cleanup.
+- A trading strategy built for the configured perpetual-market workflow; other market types need separate validation.
+- Possible incompatibilities as the exchange API evolves.
+
+## Project structure
+
+```text
+helpers/
+  backpack_exchange.py  Authenticated API client
+  public_API.py         Public market-data client
+  orders.py             Account-wide cleanup helpers
+  format_types.py       API enums
+tests/
+  test_api.py           API and signing regression tests
+  test_trading.py       Price and quantity helper tests
+.github/workflows/
+  tests.yml             Offline CI workflow
+start.py                Live trading loop
+settings.json           Example configuration
+env_example             Credential template without real keys
+```
+
+## Contributing
+
+Bug reports, documentation improvements, tests, and focused pull requests are welcome.
+
+1. Open an [issue](https://github.com/solotop999/auto_trade_backpack_exchange/issues) describing the problem or proposal. Discuss larger changes first.
+2. Fork the repository and create a branch.
+3. Keep changes focused. Add regression tests for behavior changes, using mocked HTTP requests rather than live trading credentials.
+4. Run `python -m unittest discover -s tests -v`.
+5. Open a pull request explaining the change, relevant API documentation, and validation performed.
+
+Bug reports should include your Python version, reproduction steps, expected behavior, and a sanitized error message. Remove API secrets, Telegram credentials, and private account information.
+
+Useful future contributions include a dry-run mode, symbol-scoped cleanup, fill-confirmation handling, and additional API error-path tests. These are proposed improvements, not implemented features.
+
+For suspected credential-exposure vulnerabilities, do not publish secrets or exploit details in public issues. Use GitHub private vulnerability reporting if that option is available on the repository.
+
+## License
+
+Released under the [MIT License](LICENSE). See the license for permissions, conditions, and the warranty disclaimer. Dependencies retain their respective licenses.
